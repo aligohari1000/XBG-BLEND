@@ -29,21 +29,21 @@ feature_names = [
 # --- محاسبات برای بلندینگ ---
 def calculate_blending_features(num_parts, blending_data):
     # محاسبه %VB
-    vb_sum = sum([part['Sulphur'] * part['Viscosity'] * part['Density'] for part in blending_data])
+    vb_sum = sum([part['Sulphur'] * part['Viscosity'] * part['Density'] * part['MassFraction'] for part in blending_data])
     vb = vb_sum / num_parts
 
     # محاسبه Total Sulphur
-    total_sulphur = sum([part['Sulphur'] for part in blending_data])
+    total_sulphur = sum([part['Sulphur'] * part['MassFraction'] for part in blending_data])
 
     # محاسبه Linear Pour Point (محاسبه‌ شده به روش خطی)
-    linear_pour_point = sum([part['Sulphur'] * part['Pour Point'] for part in blending_data])
+    linear_pour_point = sum([part['Sulphur'] * part['Pour Point'] * part['MassFraction'] for part in blending_data])
 
     # محاسبه Correlation Pour Point
     correlation_pour_point = 0
     for part in blending_data:
         temp_rankine = (part['Pour Point'] + 273.15) * 1.8
         index = 3262000 * ((temp_rankine / 1000) ** 12.5)
-        correlation_pour_point += (index * part['Sulphur'])
+        correlation_pour_point += (index * part['Sulphur'] * part['MassFraction'])
 
     correlation_pour_point = (((correlation_pour_point / 3262000) ** (1 / 12.5)) * 1000) / 1.8 - 273.15
 
@@ -51,7 +51,7 @@ def calculate_blending_features(num_parts, blending_data):
     correlation_viscosity = 0
     for part in blending_data:
         ln_visc = math.log(part['Viscosity'])  # گرفتن log ویسکوزیته
-        correlation_viscosity += ln_visc * part['Sulphur']  # ضرب در درصد جرمی
+        correlation_viscosity += ln_visc * part['Sulphur'] * part['MassFraction']  # ضرب در درصد جرمی
 
     correlation_viscosity = math.exp(correlation_viscosity)  # گرفتن exp از مجموع
 
@@ -123,12 +123,14 @@ if menu == "محاسبه بلندینگ":
         Viscosity = st.number_input(f"Viscosity برای جزء {i + 1}:", value=0.0)
         Density = st.number_input(f"Density برای جزء {i + 1}:", value=0.0)
         Pour_Point = st.number_input(f"Pour Point برای جزء {i + 1}:", value=0.0)
+        MassFraction = st.number_input(f"درصد جرمی برای جزء {i + 1}:", value=0.0)
 
         blending_data.append({
             'Sulphur': Sulphur,
             'Viscosity': Viscosity,
             'Density': Density,
-            'Pour Point': Pour_Point
+            'Pour Point': Pour_Point,
+            'MassFraction': MassFraction
         })
 
     if st.button("محاسبه ویژگی‌ها"):
