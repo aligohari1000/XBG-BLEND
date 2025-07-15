@@ -22,7 +22,8 @@ model_pp, model_visco = load_models()
 
 # --- FEATURE LIST ---
 feature_names = [
-    "%VB", "Density Blend",
+    "%VB", "%CSO", "%MC", "%ISO FEED", "%ISO REC", "%LUBCUT", "%CFO",
+    "%CO", "%OIL", "%BN", "CUT 3", "CUT 2", "%RPO", "Density Blend",
     "Total Sulphur", "Linear Visco", "Core Visco", "Linear Pp", "Corelation Pp"
 ]
 
@@ -50,10 +51,10 @@ def calculate_blending_features(num_parts, blending_data):
     # محاسبه Correlation Viscosity
     correlation_viscosity = 0
     for part in blending_data:
-        ln_visc = math.log(part['Viscosity'])
-        correlation_viscosity += ln_visc * part['Sulphur']
+        ln_visc = math.log(part['Viscosity'])  # گرفتن log ویسکوزیته
+        correlation_viscosity += ln_visc * part['Sulphur']  # ضرب در درصد جرمی
 
-    correlation_viscosity = math.exp(correlation_viscosity)
+    correlation_viscosity = math.exp(correlation_viscosity)  # گرفتن exp از مجموع
 
     return vb, total_sulphur, linear_pour_point, correlation_pour_point, correlation_viscosity
 
@@ -89,11 +90,11 @@ if menu == "آپدیت مدل":
                 y_visco = df["Visco 50"]
 
                 # آموزش مدل Pour Point
-                model_pp_new = XGBRegressor(alpha=1e-05, base_score=0.5, booster='gbtree', callbacks=None, colsample_bylevel=0.9, colsample_bynode=1, colsample_bytree=0.88, early_stopping_rounds=None, enable_categorical=False, eta=0.01, eval_metric=None, feature_types=None, gamma=0, gpu_id=-1, grow_policy='lossguide', importance_type=None, interaction_constraints='', learning_rate=0.1, max_bin=20, max_cat_threshold=64, max_cat_to_onehot=4, max_delta_step=10, max_depth=10, max_leaves=0, min_child_weight=1, monotone_constraints='()', n_estimators=360, n_jobs=10, num_parallel_tree=10, subsample=0.99, objective='reg:squarederror')
+                model_pp_new = XGBRegressor(n_estimators=100, learning_rate=0.1, max_depth=4, objective='reg:squarederror')
                 model_pp_new.fit(X, y_pp)
 
                 # آموزش مدل Visco 50
-                model_visco_new = XGBRegressor(alpha=1e-05, base_score=0.5, booster='gbtree', callbacks=None, colsample_bylevel=0.9, colsample_bynode=1, colsample_bytree=0.88, early_stopping_rounds=None, enable_categorical=False, eta=0.01, eval_metric=None, feature_types=None, gamma=0, gpu_id=-1, grow_policy='lossguide', importance_type=None, interaction_constraints='', learning_rate=0.1, max_bin=20, max_cat_threshold=64, max_cat_to_onehot=4, max_delta_step=10, max_depth=10, max_leaves=0, min_child_weight=1, monotone_constraints='()', n_estimators=360, n_jobs=10, num_parallel_tree=10, subsample=0.99, objective='reg:squarederror')
+                model_visco_new = XGBRegressor(n_estimators=100, learning_rate=0.1, max_depth=4, objective='reg:squarederror')
                 model_visco_new.fit(X, y_visco)
 
                 # ذخیره مدل‌ها
