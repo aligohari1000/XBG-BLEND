@@ -3,13 +3,13 @@ import numpy as np
 import pandas as pd
 import joblib
 from xgboost import XGBRegressor
-import os
+import math
 
 # --- UI HEADER ---
 st.title("🧪 پیش‌بینی Pour Point و Visco 50 + سیستم آپدیت مدل")
 
 st.sidebar.title("📂 عملیات")
-menu = st.sidebar.radio("بخش مورد نظر:", ["پیش‌بینی", "آپدیت مدل"])
+menu = st.sidebar.radio("بخش مورد نظر:", ["پیش‌بینی", "آپدیت مدل", "محاسبه بلندینگ"])
 
 # --- LOAD MODELS ---
 @st.cache_resource
@@ -22,9 +22,41 @@ model_pp, model_visco = load_models()
 
 # --- FEATURE LIST ---
 feature_names = [
-    "%VB",  "Density Blend",
+    "%VB", "Density Blend",
     "Total Sulphur", "Linear Visco", "Core Visco", "Linear Pp", "Corelation Pp"
 ]
+
+# --- محاسبات برای بلندینگ ---
+def calculate_blending_features(num_parts, blending_data):
+    # محاسبه %VB
+    vb_sum = sum([part['Sulphur'] * part['Viscosity'] * part['Density'] for part in blending_data])
+    vb = vb_sum / num_parts
+
+    # محاسبه Total Sulphur
+    total_sulphur = sum([part['Sulphur'] for part in blending_data])
+
+    # محاسبه Linear Pour Point (محاسبه‌ شده به روش خطی)
+    linear_pour_point = sum([part['Sulphur'] * part['Pour Point'] for part in blending_data])
+
+    # محاسبه Correlation Pour Point
+    correlation_pour_point = 0
+    for part in blending_data:
+        temp_rankine = (part['Pour Point'] + 273.15) * 1.8
+        index = 3262000 * ((temp_rankine / 1000) ** 12.5)
+        correlation_pour_point += (index * part['Sulphur'])
+
+    correlation_pour_point = (((correlation_pour_point / 3262000) ** (1 / 12.5)) * 1000) / 1.8 - 273.15
+
+    # محاسبه Correlation Viscosity
+    correlation_viscosity = 0
+    for part in blending_data:
+        ln_visc = math.log(part['Viscosity'])
+        correlation_viscosity += ln_visc * part['Sulphur']
+
+    correlation_viscosity = math.exp(correlation_viscosity)
+
+    return vb, total_sulphur, linear_pour_point, correlation_pour_point, correlation_viscosity
+
 
 # --- بخش پیش‌بینی ---
 if menu == "پیش‌بینی":
@@ -75,3 +107,36 @@ if menu == "آپدیت مدل":
 
         except Exception as e:
             st.error(f"❌ خطا در پردازش فایل: {e}")
+
+# --- بخش محاسبه بلندینگ ---
+if menu == "محاسبه بلندینگ":
+    st.subheader("🔄 محاسبه ویژگی‌های بلندینگ")
+
+    num_parts = st.number_input("تعداد اجزای بلندینگ:", min_value=1, step=1)
+
+    blending_data = []
+
+    for i in range(num_parts):
+        st.subheader(f"جزء {i + 1}")
+
+        Sulphur = st.number_input(f"Sulphur برای جزء {i + 1}:", value=0.0)
+        Viscosity = st.number_input(f"Viscosity برای جزء {i + 1}:", value=0.0)
+        Density = st.number_input(f"Density برای جزء {i + 1}:", value=0.0)
+        Pour_Point = st.number_input(f"Pour Point برای جزء {i + 1}:", value=0.0)
+
+        blending_data.append({
+            'Sulphur': Sulphur,
+            'Viscosity': Viscosity,
+            'Density': Density,
+            'Pour Point': Pour_Point
+        })
+
+    if st.button("محاسبه ویژگی‌ها"):
+        vb, total_sulphur, linear_pour_point, correlation_pour_point, correlation_viscosity = calculate_blending_features(num_parts, blending_data)
+        st.write(f"ویژگی‌های محاسبه شده:")
+        st.write(f"1. %VB: {vb:.2f}")
+        st.write(f"2. Total Sulphur: {total_sulphur:.2f}")
+        st.write(f"3. Linear Pour Point: {linear_pour_point:.2f}")
+        st.write(f"4. Correlation Pour Point: {correlation_pour_point:.2f}")
+        st.write(f"5. Correlation Viscosity: {correlation_viscosity:.2f}")
+
