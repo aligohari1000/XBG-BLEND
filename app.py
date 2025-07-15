@@ -22,8 +22,7 @@ model_pp, model_visco = load_models()
 
 # --- FEATURE LIST ---
 feature_names = [
-    "%VB", "%CSO", "%MC", "%ISO FEED", "%ISO REC", "%LUBCUT", "%CFO",
-    "%CO", "%OIL", "%BN", "CUT 3", "CUT 2", "%RPO", "Density Blend",
+    "%VB", "Density Blend",
     "Total Sulphur", "Linear Visco", "Core Visco", "Linear Pp", "Corelation Pp"
 ]
 
