@@ -28,13 +28,6 @@ feature_names = [
 
 # --- محاسبات برای بلندینگ ---
 def calculate_blending_features(num_parts, blending_data):
-    # محاسبه %VB
-    vb_sum = sum([
-        part['Sulphur'] * part['Viscosity'] * part['Density'] * part['MassFraction']
-        for part in blending_data
-    ])
-    vb = vb_sum / num_parts
-
     # محاسبه Total Sulphur
     total_sulphur = sum([part['Sulphur'] * part['MassFraction'] for part in blending_data])
 
@@ -122,6 +115,7 @@ if menu == "محاسبه بلندینگ":
     num_parts = st.number_input("تعداد اجزای بلندینگ:", min_value=1, step=1)
 
     blending_data = []
+    total_mass = 0
 
     for i in range(num_parts):
         st.subheader(f"جزء {i + 1}")
@@ -129,23 +123,27 @@ if menu == "محاسبه بلندینگ":
         Sulphur = st.number_input(f"Sulphur برای جزء {i + 1}:", value=0.0)
         Viscosity = st.number_input(f"Viscosity برای جزء {i + 1}:", value=0.0)
         Density = st.number_input(f"Density برای جزء {i + 1}:", value=0.0)
-        Pour_Point = st.number_input(f"Pour Point برای جزء {i + 1}:", value=0.0)
-        MassFraction = st.number_input(f"درصد جرمی برای جزء {i + 1}:", value=0.0)
+        Pour_Point = st.number_input(f"Pour Point برای جزء {i + 1} (°C):", value=0.0)
+        Mass = st.number_input(f"جرم (kg) برای جزء {i + 1}:", value=0.0)
 
         blending_data.append({
             'Sulphur': Sulphur,
             'Viscosity': Viscosity,
             'Density': Density,
             'Pour Point': Pour_Point,
-            'MassFraction': MassFraction
+            'Mass': Mass
         })
+        total_mass += Mass
+
+    # محاسبه درصد جرمی پس از دریافت همه جرم‌ها
+    for part in blending_data:
+        part['MassFraction'] = part['Mass'] / total_mass if total_mass > 0 else 0
 
     if st.button("محاسبه ویژگی‌ها"):
         vb, total_sulphur, linear_pour_point, correlation_pour_point, correlation_viscosity = calculate_blending_features(num_parts, blending_data)
         st.write(f"ویژگی‌های محاسبه شده:")
         st.write(f"1. %VB: {vb:.2f}")
         st.write(f"2. Total Sulphur: {total_sulphur:.2f}")
-        st.write(f"3. Linear Pour Point: {linear_pour_point:.2f}")
-        st.write(f"4. Correlation Pour Point: {correlation_pour_point:.2f}")
+        st.write(f"3. Linear Pour Point: {linear_pour_point:.2f} °C")
+        st.write(f"4. Correlation Pour Point: {correlation_pour_point:.2f} °C")
         st.write(f"5. Correlation Viscosity: {correlation_viscosity:.2f}")
-
