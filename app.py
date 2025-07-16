@@ -56,7 +56,7 @@ def calculate_blending_features(num_parts, blending_data):
 
     correlation_viscosity = math.exp(correlation_viscosity)
 
-    return vb, total_sulphur, linear_pour_point, correlation_pour_point, correlation_viscosity
+    return total_sulphur, linear_pour_point, correlation_pour_point, correlation_viscosity
 
 # --- بخش پیش‌بینی ---
 if menu == "پیش‌بینی":
