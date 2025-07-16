@@ -109,6 +109,7 @@ if menu == "آپدیت مدل":
             st.error(f"❌ خطا در پردازش فایل: {e}")
 
 # --- بخش محاسبه بلندینگ ---
+# --- بخش محاسبه بلندینگ ---
 if menu == "محاسبه بلندینگ":
     st.subheader("🔄 محاسبه ویژگی‌های بلندینگ")
 
@@ -121,10 +122,10 @@ if menu == "محاسبه بلندینگ":
         st.subheader(f"جزء {i + 1}")
 
         Sulphur = st.number_input(f"Sulphur برای جزء {i + 1}:", value=0.0)
-        Viscosity = st.number_input(f"Viscosity برای جزء {i + 1}:", value=0.0)
+        Viscosity = st.number_input(f"Viscosity برای جزء {i + 1}:", min_value=0.001, value=1.0)
         Density = st.number_input(f"Density برای جزء {i + 1}:", value=0.0)
         Pour_Point = st.number_input(f"Pour Point برای جزء {i + 1} (°C):", value=0.0)
-        Mass = st.number_input(f"جرم (kg) برای جزء {i + 1}:", value=0.0)
+        Mass = st.number_input(f"جرم (kg) برای جزء {i + 1}:", min_value=0.001, value=1.0)
 
         blending_data.append({
             'Sulphur': Sulphur,
@@ -138,6 +139,52 @@ if menu == "محاسبه بلندینگ":
     # محاسبه درصد جرمی پس از دریافت همه جرم‌ها
     for part in blending_data:
         part['MassFraction'] = part['Mass'] / total_mass if total_mass > 0 else 0
+
+    def calculate_blending_features(num_parts, blending_data):
+        try:
+            # محاسبه %VB
+            vb_sum = sum([
+                part['Sulphur'] * part['Viscosity'] * part['Density'] * part['MassFraction']
+                for part in blending_data
+            ])
+            vb = vb_sum / num_parts if num_parts > 0 else 0
+
+            # Total Sulphur
+            total_sulphur = sum([part['Sulphur'] * part['MassFraction'] for part in blending_data])
+
+            # Linear Pour Point
+            linear_pour_point = sum([
+                part['Pour Point'] * part['MassFraction'] for part in blending_data
+            ])
+
+            # Correlation Pour Point
+            bi_pp_blend = 0
+            for part in blending_data:
+                pp_c = part['Pour Point']
+                pp_rankine = (pp_c + 273.15) * 1.8
+                if pp_rankine <= 0:
+                    raise ValueError(f"Pour Point Rankine نامعتبر برای جزء با مقدار {pp_c}")
+                bi_pp_i = 3262000 * ((pp_rankine / 1000) ** 12.5)
+                bi_pp_blend += bi_pp_i * part['MassFraction']
+
+            pp_blend_rankine = ((bi_pp_blend / 3262000) ** (1 / 12.5)) * 1000
+            correlation_pour_point = (pp_blend_rankine / 1.8) - 273.15
+
+            # Correlation Viscosity
+            correlation_viscosity = 0
+            for part in blending_data:
+                if part['Viscosity'] <= 0:
+                    raise ValueError(f"ویسکوزیته باید > 0 باشد. مقدار نامعتبر: {part['Viscosity']}")
+                ln_visc = math.log(part['Viscosity'])
+                correlation_viscosity += part['MassFraction'] * ln_visc
+
+            correlation_viscosity = math.exp(correlation_viscosity)
+
+            return vb, total_sulphur, linear_pour_point, correlation_pour_point, correlation_viscosity
+
+        except Exception as e:
+            st.error(f"❌ خطا در محاسبات: {e}")
+            return 0, 0, 0, 0, 0
 
     if st.button("محاسبه ویژگی‌ها"):
         vb, total_sulphur, linear_pour_point, correlation_pour_point, correlation_viscosity = calculate_blending_features(num_parts, blending_data)
