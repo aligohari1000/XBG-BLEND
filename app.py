@@ -29,34 +29,41 @@ feature_names = [
 # --- محاسبات برای بلندینگ ---
 def calculate_blending_features(num_parts, blending_data):
     # محاسبه %VB
-    vb_sum = sum([part['Sulphur'] * part['Viscosity'] * part['Density'] * part['MassFraction'] for part in blending_data])
+    vb_sum = sum([
+        part['Sulphur'] * part['Viscosity'] * part['Density'] * part['MassFraction']
+        for part in blending_data
+    ])
     vb = vb_sum / num_parts
 
     # محاسبه Total Sulphur
     total_sulphur = sum([part['Sulphur'] * part['MassFraction'] for part in blending_data])
 
-    # محاسبه Linear Pour Point (محاسبه‌ شده به روش خطی)
-    linear_pour_point = sum([part['Sulphur'] * part['Pour Point'] * part['MassFraction'] for part in blending_data])
+    # محاسبه Linear Pour Point
+    linear_pour_point = sum([
+        part['Pour Point'] * part['MassFraction'] for part in blending_data
+    ])
 
-    # محاسبه Correlation Pour Point
-    correlation_pour_point = 0
+    # محاسبه BI_PP (براساس فرمول اصلاح‌شده)
+    bi_pp_blend = 0
     for part in blending_data:
-        temp_rankine = (part['Pour Point'] + 273.15) * 1.8
-        index = 3262000 * ((temp_rankine / 1000) ** 12.5)
-        correlation_pour_point += (index * part['Sulphur'] * part['MassFraction'])
+        pp_c = part['Pour Point']  # مقدار ورودی به سلسیوس است
+        pp_rankine = (pp_c + 273.15) * 1.8  # تبدیل به Rankine
+        bi_pp_i = 3262000 * ((pp_rankine / 1000) ** 12.5)
+        bi_pp_blend += bi_pp_i * part['MassFraction']
 
-    correlation_pour_point = (((correlation_pour_point / 3262000) ** (1 / 12.5)) * 1000) / 1.8 - 273.15
+    # محاسبه Pour Point بلندی (برگرداندن از BI به PP در Rankine و بعد به سلسیوس)
+    pp_blend_rankine = ((bi_pp_blend / 3262000) ** (1 / 12.5)) * 1000
+    correlation_pour_point = (pp_blend_rankine / 1.8) - 273.15  # بازگشت به سلسیوس
 
-    # محاسبه Correlation Viscosity
+    # محاسبه Visco Blend
     correlation_viscosity = 0
     for part in blending_data:
-        ln_visc = math.log(part['Viscosity'])  # گرفتن log ویسکوزیته
-        correlation_viscosity += ln_visc * part['Sulphur'] * part['MassFraction']  # ضرب در درصد جرمی
+        ln_visc = math.log(part['Viscosity'])
+        correlation_viscosity += part['MassFraction'] * ln_visc
 
-    correlation_viscosity = math.exp(correlation_viscosity)  # گرفتن exp از مجموع
+    correlation_viscosity = math.exp(correlation_viscosity)
 
     return vb, total_sulphur, linear_pour_point, correlation_pour_point, correlation_viscosity
-
 
 # --- بخش پیش‌بینی ---
 if menu == "پیش‌بینی":
