@@ -187,13 +187,31 @@ if menu == "محاسبه بلندینگ":
             return 0, 0, 0, 0, 0
 
     if st.button("محاسبه ویژگی‌ها"):
-        total_sulphur, linear_pour_point, linear_viscosity, correlation_pour_point, correlation_viscosity = calculate_blending_features(num_parts, blending_data)
+    total_sulphur, linear_pour_point, linear_viscosity, correlation_pour_point, correlation_viscosity = calculate_blending_features(num_parts, blending_data)
 
-        st.write(f"ویژگی‌های محاسبه شده:")
-        st.write(f"1. %VB (ورودی کاربر): {vb:.2f}")
-        st.write(f"2. Total Sulphur: {total_sulphur:.2f}")
-        st.write(f"3. Linear Pour Point: {linear_pour_point:.2f} °C")
-        st.write(f"4. Linear Viscosity: {linear_viscosity:.2f}")
-        st.write(f"5. Correlation Pour Point: {correlation_pour_point:.2f} °C")
-        st.write(f"6. Correlation Viscosity: {correlation_viscosity:.2f}")
+    st.write(f"ویژگی‌های محاسبه شده:")
+    st.write(f"1. %VB (ورودی کاربر): {vb:.2f}")
+    st.write(f"2. Total Sulphur: {total_sulphur:.2f}")
+    st.write(f"3. Linear Pour Point: {linear_pour_point:.2f} °C")
+    st.write(f"4. Linear Viscosity: {linear_viscosity:.2f}")
+    st.write(f"5. Correlation Pour Point: {correlation_pour_point:.2f} °C")
+    st.write(f"6. Correlation Viscosity: {correlation_viscosity:.2f}")
 
+    # ✅ ساخت ورودی برای مدل‌ها
+    input_features = np.array([[
+        vb,                        # %VB
+        0,                         # Density Blend (می‌خوای اینو حساب کنیم یا صفر بذاریم؟)
+        total_sulphur,
+        linear_viscosity,
+        correlation_viscosity,
+        linear_pour_point,
+        correlation_pour_point
+    ]])
+
+    # ✅ پیش‌بینی با مدل‌ها
+    pred_pp = model_pp.predict(input_features)[0]
+    pred_visco = model_visco.predict(input_features)[0]
+
+    st.subheader("🔮 پیش‌بینی بر اساس فیچرهای بلندینگ")
+    st.success(f"✅ Pour Point پیش‌بینی شده: {pred_pp:.2f} °C")
+    st.success(f"✅ Visco 50 پیش‌بینی شده: {pred_visco:.2f}")
