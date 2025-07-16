@@ -115,6 +115,9 @@ if menu == "محاسبه بلندینگ":
 
     num_parts = st.number_input("تعداد اجزای بلندینگ:", min_value=1, step=1)
 
+    # گرفتن %VB مستقیم از کاربر
+    vb = st.number_input("مقدار %VB برای کل بلند:", min_value=0.0, value=0.0)
+
     blending_data = []
     total_mass = 0
 
@@ -136,25 +139,22 @@ if menu == "محاسبه بلندینگ":
         })
         total_mass += Mass
 
-    # محاسبه درصد جرمی پس از دریافت همه جرم‌ها
     for part in blending_data:
         part['MassFraction'] = part['Mass'] / total_mass if total_mass > 0 else 0
 
     def calculate_blending_features(num_parts, blending_data):
         try:
-            # محاسبه %VB
-            vb_sum = sum([
-                part['Sulphur'] * part['Viscosity'] * part['Density'] * part['MassFraction']
-                for part in blending_data
-            ])
-            vb = vb_sum / num_parts if num_parts > 0 else 0
-
             # Total Sulphur
             total_sulphur = sum([part['Sulphur'] * part['MassFraction'] for part in blending_data])
 
             # Linear Pour Point
             linear_pour_point = sum([
                 part['Pour Point'] * part['MassFraction'] for part in blending_data
+            ])
+
+            # Linear Viscosity
+            linear_viscosity = sum([
+                part['Viscosity'] * part['MassFraction'] for part in blending_data
             ])
 
             # Correlation Pour Point
@@ -180,17 +180,20 @@ if menu == "محاسبه بلندینگ":
 
             correlation_viscosity = math.exp(correlation_viscosity)
 
-            return vb, total_sulphur, linear_pour_point, correlation_pour_point, correlation_viscosity
+            return total_sulphur, linear_pour_point, linear_viscosity, correlation_pour_point, correlation_viscosity
 
         except Exception as e:
             st.error(f"❌ خطا در محاسبات: {e}")
             return 0, 0, 0, 0, 0
 
     if st.button("محاسبه ویژگی‌ها"):
-        vb, total_sulphur, linear_pour_point, correlation_pour_point, correlation_viscosity = calculate_blending_features(num_parts, blending_data)
+        total_sulphur, linear_pour_point, linear_viscosity, correlation_pour_point, correlation_viscosity = calculate_blending_features(num_parts, blending_data)
+
         st.write(f"ویژگی‌های محاسبه شده:")
-        st.write(f"1. %VB: {vb:.2f}")
+        st.write(f"1. %VB (ورودی کاربر): {vb:.2f}")
         st.write(f"2. Total Sulphur: {total_sulphur:.2f}")
         st.write(f"3. Linear Pour Point: {linear_pour_point:.2f} °C")
-        st.write(f"4. Correlation Pour Point: {correlation_pour_point:.2f} °C")
-        st.write(f"5. Correlation Viscosity: {correlation_viscosity:.2f}")
+        st.write(f"4. Linear Viscosity: {linear_viscosity:.2f}")
+        st.write(f"5. Correlation Pour Point: {correlation_pour_point:.2f} °C")
+        st.write(f"6. Correlation Viscosity: {correlation_viscosity:.2f}")
+
