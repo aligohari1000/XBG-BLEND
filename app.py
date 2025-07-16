@@ -74,33 +74,86 @@ if menu == "Prediction":
 
 # --- Update Model Section ---
 elif menu == "Update Model":
-    st.subheader("🔁 Update Models with Excel File")
+    st.subheader("🔁 Update Models")
 
-    uploaded_file = st.file_uploader("📄 Upload Excel file", type=["xlsx"])
-    if uploaded_file is not None:
+    # Initialize session state for manual data
+    if "manual_data" not in st.session_state:
+        st.session_state["manual_data"] = pd.DataFrame(columns=[
+            "%VB", "Density Blend", "Total Sulphur", "Linear Visco", "Core Visco",
+            "Visco 50", "Linear Pp", "Corelation Pp", "Pour Point"
+        ])
+
+    mode = st.radio("Choose update method:", ["📄 Upload Excel", "✍️ Manual Add"])
+
+    if mode == "📄 Upload Excel":
+        uploaded_file = st.file_uploader("Upload Excel file", type=["xlsx"])
+        if uploaded_file is not None:
+            try:
+                df = pd.read_excel(uploaded_file)
+                df = df.iloc[:, 1:]
+
+                expected_columns = st.session_state["manual_data"].columns.tolist()
+                if all(col in df.columns for col in expected_columns):
+                    st.session_state["manual_data"] = pd.concat([st.session_state["manual_data"], df], ignore_index=True)
+                    st.success("✅ Data added to training set.")
+                else:
+                    st.error(f"❌ Missing required columns. Expected: {expected_columns}")
+            except Exception as e:
+                st.error(f"❌ Error processing file: {e}")
+
+    elif mode == "✍️ Manual Add":
+        with st.form("manual_add_form"):
+            st.markdown("### ➕ Add a New Row")
+
+            vb = st.number_input("%VB", value=0.0)
+            density = st.number_input("Density Blend", value=0.0)
+            sulphur = st.number_input("Total Sulphur", value=0.0)
+            lin_visco = st.number_input("Linear Visco", value=0.0)
+            cor_visco = st.number_input("Core Visco", value=0.0)
+            visco_50 = st.number_input("Visco 50", value=0.0)
+            lin_pp = st.number_input("Linear Pp", value=0.0)
+            cor_pp = st.number_input("Corelation Pp", value=0.0)
+            pp = st.number_input("Pour Point", value=0.0)
+
+            submitted = st.form_submit_button("Add Row")
+            if submitted:
+                new_row = pd.DataFrame([{
+                    "%VB": vb,
+                    "Density Blend": density,
+                    "Total Sulphur": sulphur,
+                    "Linear Visco": lin_visco,
+                    "Core Visco": cor_visco,
+                    "Visco 50": visco_50,
+                    "Linear Pp": lin_pp,
+                    "Corelation Pp": cor_pp,
+                    "Pour Point": pp
+                }])
+                st.session_state["manual_data"] = pd.concat([st.session_state["manual_data"], new_row], ignore_index=True)
+                st.success("✅ Row added successfully!")
+
+    st.markdown("### 📊 Current Training Dataset")
+    st.write(f"Total rows: {len(st.session_state['manual_data'])}")
+    st.dataframe(st.session_state["manual_data"], use_container_width=True)
+
+    if st.button("🔄 Retrain Models"):
         try:
-            df = pd.read_excel(uploaded_file)
-            df = df.iloc[:, 1:]  # Remove first column if needed
+            df = st.session_state["manual_data"]
+            X = df.drop(columns=["Pour Point", "Visco 50"])
+            y_pp = df["Pour Point"]
+            y_visco = df["Visco 50"]
 
-            if "Pour Point" in df.columns and "Visco 50" in df.columns:
-                X = df.drop(columns=["Pour Point", "Visco 50"])
-                y_pp = df["Pour Point"]
-                y_visco = df["Visco 50"]
+            model_pp_new = XGBRegressor(n_estimators=100, learning_rate=0.1, max_depth=4, objective='reg:squarederror')
+            model_pp_new.fit(X, y_pp)
 
-                model_pp_new = XGBRegressor(n_estimators=100, learning_rate=0.1, max_depth=4, objective='reg:squarederror')
-                model_pp_new.fit(X, y_pp)
+            model_visco_new = XGBRegressor(n_estimators=100, learning_rate=0.1, max_depth=4, objective='reg:squarederror')
+            model_visco_new.fit(X, y_visco)
 
-                model_visco_new = XGBRegressor(n_estimators=100, learning_rate=0.1, max_depth=4, objective='reg:squarederror')
-                model_visco_new.fit(X, y_visco)
+            joblib.dump(model_pp_new, "model_pour_point.pkl")
+            joblib.dump(model_visco_new, "model_visco50.pkl")
 
-                joblib.dump(model_pp_new, "model_pour_point.pkl")
-                joblib.dump(model_visco_new, "model_visco50.pkl")
-
-                st.success("✅ Models updated successfully! Please refresh the app to use the new models.")
-            else:
-                st.error("❌ Excel file must include 'Pour Point' and 'Visco 50' columns.")
+            st.success("✅ Models retrained and saved successfully!")
         except Exception as e:
-            st.error(f"❌ File processing error: {e}")
+            st.error(f"❌ Error during training: {e}")
 
 # --- Blending Section ---
 elif menu == "Blending Calculator":
