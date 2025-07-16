@@ -39,9 +39,16 @@ st.markdown("""
         font-family: 'Courier New', monospace;
     }
     .stRadio > div {
-        background-color: #262626;
-        padding: 10px;
+        background-color: #dddddd !important;
+        color: #111 !important;
+        padding: 12px;
         border-radius: 10px;
+    }
+    .css-1d391kg {
+        background-color: #f5f5f5 !important;
+    }
+    .stSidebar h1, .stSidebar h2, .stSidebar h3, .stSidebar h4 {
+        color: #111 !important;
     }
     </style>
 """, unsafe_allow_html=True)
