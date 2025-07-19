@@ -131,30 +131,15 @@ elif menu == "📤 Update Model":
         uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
         if uploaded_file:
             try:
-                # Step 1: Load Excel without assuming header
-                raw_df = pd.read_excel(uploaded_file, header=None)
-
-                # Step 2: First row assumed to be headers
-                headers = raw_df.iloc[0].tolist()
-                df = raw_df[1:]
-                df.columns = headers
-
-                # Step 3: Ensure all expected columns are present
+                df = pd.read_excel(uploaded_file).iloc[:, 1:]
                 expected_cols = st.session_state["manual_data"].columns.tolist()
-                if not all(col in df.columns for col in expected_cols):
-                    st.error("❌ Missing required columns.")
+                if all(col in df.columns for col in expected_cols):
+                    st.session_state["manual_data"] = pd.concat([st.session_state["manual_data"], df], ignore_index=True)
+                    st.success("✅ Data added to dataset.")
                 else:
-                    # Step 4: Convert to numeric
-                    df_clean = df[expected_cols].apply(pd.to_numeric, errors='coerce')
-                    df_clean = df_clean.dropna()
-
-                    st.session_state["manual_data"] = pd.concat(
-                        [st.session_state["manual_data"], df_clean],
-                        ignore_index=True
-                    )
-                    st.success("✅ Cleaned data added to dataset.")
+                    st.error("❌ Required columns not found.")
             except Exception as e:
-                st.error(f"❌ File processing error: {e}")
+                st.error(f"❌ File Error: {e}")
 
     if mode == "✍️ Manual Add":
         with st.form("manual_entry"):
@@ -182,27 +167,24 @@ elif menu == "📤 Update Model":
     st.markdown("### 📊 Current Dataset")
     st.dataframe(st.session_state["manual_data"], use_container_width=True, height=300)
 
-if st.button("🚀 Retrain Models"):
-    try:
-        df = st.session_state["manual_data"]
-        df_clean = df.apply(pd.to_numeric, errors='coerce').dropna()
+    if st.button("🚀 Retrain Models"):
+        try:
+            df = st.session_state["manual_data"]
+            X = df.drop(columns=["Pour Point", "Visco 50"])
+            y_pp = df["Pour Point"]
+            y_visco = df["Visco 50"]
 
-        X = df_clean.drop(columns=["Pour Point", "Visco 50"])
-        y_pp = df_clean["Pour Point"]
-        y_visco = df_clean["Visco 50"]
+            model_pp_new = XGBRegressor(n_estimators=100, learning_rate=0.1, max_depth=4)
+            model_pp_new.fit(X, y_pp)
 
-        model_pp_new = XGBRegressor(n_estimators=100, learning_rate=0.1, max_depth=4)
-        model_pp_new.fit(X, y_pp)
+            model_visco_new = XGBRegressor(n_estimators=100, learning_rate=0.1, max_depth=4)
+            model_visco_new.fit(X, y_visco)
 
-        model_visco_new = XGBRegressor(n_estimators=100, learning_rate=0.1, max_depth=4)
-        model_visco_new.fit(X, y_visco)
-
-        joblib.dump(model_pp_new, "model_pour_point.pkl")
-        joblib.dump(model_visco_new, "model_visco50.pkl")
-        st.success("✅ Models retrained & saved.")
-    except Exception as e:
-        st.error(f"Training error: {e}")
-
+            joblib.dump(model_pp_new, "model_pour_point.pkl")
+            joblib.dump(model_visco_new, "model_visco50.pkl")
+            st.success("✅ Models retrained & saved.")
+        except Exception as e:
+            st.error(f"Training error: {e}")
 
 # --- Blending ---
 elif menu == "🧪 Blending Calculator":
