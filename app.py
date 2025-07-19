@@ -131,15 +131,30 @@ elif menu == "📤 Update Model":
         uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
         if uploaded_file:
             try:
-                df = pd.read_excel(uploaded_file).iloc[:, 1:]
+                # Step 1: Load Excel without assuming header
+                raw_df = pd.read_excel(uploaded_file, header=None)
+
+                # Step 2: First row assumed to be headers
+                headers = raw_df.iloc[0].tolist()
+                df = raw_df[1:]
+                df.columns = headers
+
+                # Step 3: Ensure all expected columns are present
                 expected_cols = st.session_state["manual_data"].columns.tolist()
-                if all(col in df.columns for col in expected_cols):
-                    st.session_state["manual_data"] = pd.concat([st.session_state["manual_data"], df], ignore_index=True)
-                    st.success("✅ Data added to dataset.")
+                if not all(col in df.columns for col in expected_cols):
+                    st.error("❌ Missing required columns.")
                 else:
-                    st.error("❌ Required columns not found.")
+                    # Step 4: Convert to numeric
+                    df_clean = df[expected_cols].apply(pd.to_numeric, errors='coerce')
+                    df_clean = df_clean.dropna()
+
+                    st.session_state["manual_data"] = pd.concat(
+                        [st.session_state["manual_data"], df_clean],
+                        ignore_index=True
+                    )
+                    st.success("✅ Cleaned data added to dataset.")
             except Exception as e:
-                st.error(f"❌ File Error: {e}")
+                st.error(f"❌ File processing error: {e}")
 
     if mode == "✍️ Manual Add":
         with st.form("manual_entry"):
