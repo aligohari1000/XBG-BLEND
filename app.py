@@ -201,6 +201,7 @@ elif menu == "📤 Update Model":
         except Exception as e:
             st.error(f"Training error: {e}")
 
+
 # --- Blending ---
 elif menu == "🧪 Blending Calculator":
     st.header("🔬 Calculate Blend Features")
