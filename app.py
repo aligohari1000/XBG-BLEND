@@ -183,23 +183,25 @@ elif menu == "📤 Update Model":
     st.dataframe(st.session_state["manual_data"], use_container_width=True, height=300)
 
     if st.button("🚀 Retrain Models"):
-        try:
-            df = st.session_state["manual_data"]
-            X = df.drop(columns=["Pour Point", "Visco 50"])
-            y_pp = df["Pour Point"]
-            y_visco = df["Visco 50"]
+    try:
+        df = st.session_state["manual_data"]
+        df_clean = df.apply(pd.to_numeric, errors='coerce').dropna()
 
-            model_pp_new = XGBRegressor(n_estimators=100, learning_rate=0.1, max_depth=4)
-            model_pp_new.fit(X, y_pp)
+        X = df_clean.drop(columns=["Pour Point", "Visco 50"])
+        y_pp = df_clean["Pour Point"]
+        y_visco = df_clean["Visco 50"]
 
-            model_visco_new = XGBRegressor(n_estimators=100, learning_rate=0.1, max_depth=4)
-            model_visco_new.fit(X, y_visco)
+        model_pp_new = XGBRegressor(n_estimators=100, learning_rate=0.1, max_depth=4)
+        model_pp_new.fit(X, y_pp)
 
-            joblib.dump(model_pp_new, "model_pour_point.pkl")
-            joblib.dump(model_visco_new, "model_visco50.pkl")
-            st.success("✅ Models retrained & saved.")
-        except Exception as e:
-            st.error(f"Training error: {e}")
+        model_visco_new = XGBRegressor(n_estimators=100, learning_rate=0.1, max_depth=4)
+        model_visco_new.fit(X, y_visco)
+
+        joblib.dump(model_pp_new, "model_pour_point.pkl")
+        joblib.dump(model_visco_new, "model_visco50.pkl")
+        st.success("✅ Models retrained & saved.")
+    except Exception as e:
+        st.error(f"Training error: {e}")
 
 
 # --- Blending ---
