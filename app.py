@@ -5,59 +5,37 @@ import joblib
 from xgboost import XGBRegressor
 import math
 
-# --- Custom CSS Styling ---
+# --- Session State Initialization ---
+if "manual_data" not in st.session_state:
+    st.session_state["manual_data"] = pd.DataFrame(columns=[
+        "%VB", "Density Blend", "Total Sulphur", "Linear Visco", "Core Visco",
+        "Visco 50", "Linear Pp", "Corelation Pp", "Pour Point"
+    ])
+
+# --- App Styling ---
+st.set_page_config(page_title="Refinery Blend AI", layout="centered")
 st.markdown("""
     <style>
-    body {
-        background-color: #1a1a1a;
-    }
-    .main {
-        background-color: #1e1e1e;
-        color: #f0f0f0;
-    }
-    h1, h2, h3, h4 {
-        color: #e3e3e3;
-    }
-    .block-container {
-        padding-top: 2rem;
-    }
+    body { background-color: #1a1a1a; }
+    .main { background-color: #1e1e1e; color: #f0f0f0; }
+    h1, h2, h3, h4 { color: #e3e3e3; }
     .stTextInput > div > input, .stNumberInput input {
-        background-color: #2c2c2c;
-        color: white;
-        border-radius: 6px;
+        background-color: #2c2c2c; color: white; border-radius: 6px;
     }
     .stButton button {
-        background-color: #004080;
-        color: white;
-        border-radius: 10px;
+        background-color: #004080; color: white; border-radius: 10px;
         padding: 10px 16px;
     }
-    .stButton button:hover {
-        background-color: #0059b3;
-    }
-    .stDataFrame {
-        font-family: 'Courier New', monospace;
-    }
-    .stRadio > div {
-        background-color: #dddddd !important;
-        color: #111 !important;
-        padding: 12px;
-        border-radius: 10px;
-    }
-    .css-1d391kg {
-        background-color: #f5f5f5 !important;
-    }
-    .stSidebar h1, .stSidebar h2, .stSidebar h3, .stSidebar h4 {
-        color: #111 !important;
-    }
+    .stButton button:hover { background-color: #0059b3; }
+    .stDataFrame { font-family: 'Courier New', monospace; }
+    .stRadio > div { background-color: #ccc !important; color: #111 !important; padding: 12px; border-radius: 10px; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- App Header ---
-st.set_page_config(page_title="Refinery Blend AI", layout="centered")
+# --- Header ---
 st.title("⚙️ Refinery Blend Prediction System")
 
-# --- Sidebar Navigation ---
+# --- Sidebar ---
 st.sidebar.title("🛠️ Control Panel")
 menu = st.sidebar.radio("Choose Module:", ["📈 Prediction", "📤 Update Model", "🧪 Blending Calculator"])
 
@@ -71,40 +49,32 @@ def load_models():
 model_pp, model_visco = load_models()
 
 # --- Feature List ---
-feature_names = [
-    "%VB", "Density Blend",
-    "Total Sulphur", "Linear Visco", "Core Visco", "Linear Pp", "Corelation Pp"
-]
+feature_names = ["%VB", "Density Blend", "Total Sulphur", "Linear Visco", "Core Visco", "Linear Pp", "Corelation Pp"]
 
 # --- Blending Calculations ---
 def calculate_blending_features(num_parts, blending_data):
     try:
-        total_sulphur = sum([part['Sulphur'] * part['MassFraction'] for part in blending_data])
-        linear_pour_point = sum([part['Pour Point'] * part['MassFraction'] for part in blending_data])
-        linear_viscosity = sum([part['Viscosity'] * part['MassFraction'] for part in blending_data])
+        total_sulphur = sum(part['Sulphur'] * part['MassFraction'] for part in blending_data)
+        linear_pour_point = sum(part['Pour Point'] * part['MassFraction'] for part in blending_data)
+        linear_viscosity = sum(part['Viscosity'] * part['MassFraction'] for part in blending_data)
 
-        bi_pp_blend = 0
-        for part in blending_data:
-            pp_c = part['Pour Point']
-            pp_rankine = (pp_c + 273.15) * 1.8
-            bi_pp_i = 3262000 * ((pp_rankine / 1000) ** 12.5)
-            bi_pp_blend += bi_pp_i * part['MassFraction']
+        bi_pp_blend = sum(
+            3262000 * (((part['Pour Point'] + 273.15) * 1.8 / 1000) ** 12.5) * part['MassFraction']
+            for part in blending_data
+        )
+        correlation_pour_point = ((bi_pp_blend / 3262000) ** (1 / 12.5)) * 1000 / 1.8 - 273.15
 
-        pp_blend_rankine = ((bi_pp_blend / 3262000) ** (1 / 12.5)) * 1000
-        correlation_pour_point = (pp_blend_rankine / 1.8) - 273.15
-
-        correlation_viscosity = 0
-        for part in blending_data:
-            ln_visc = math.log(part['Viscosity'])
-            correlation_viscosity += part['MassFraction'] * ln_visc
-        correlation_viscosity = math.exp(correlation_viscosity)
+        correlation_viscosity = math.exp(sum(
+            math.log(part['Viscosity']) * part['MassFraction']
+            for part in blending_data
+        ))
 
         return total_sulphur, linear_pour_point, linear_viscosity, correlation_pour_point, correlation_viscosity
     except Exception as e:
         st.error(f"Calculation Error: {e}")
         return 0, 0, 0, 0, 0
 
-# --- Prediction ---
+# --- Prediction Section ---
 if menu == "📈 Prediction":
     st.header("📝 Manual Prediction Input")
     features = [st.number_input(label, value=0.0) for label in feature_names]
@@ -115,32 +85,25 @@ if menu == "📈 Prediction":
         st.success(f"🟦 Predicted Pour Point: `{pred_pp:.2f} °C`")
         st.success(f"🟨 Predicted Visco 50: `{pred_visco:.2f}`")
 
-# --- Update Model ---
-elif mode == "📄 Upload Excel":
-    uploaded_file = st.file_uploader("Upload Excel file", type=["xlsx"])
-    
-    if uploaded_file is not None:
-        try:
-            df = pd.read_excel(uploaded_file).iloc[:, 1:]
+# --- Update Model Section ---
+elif menu == "📤 Update Model":
+    st.header("🧠 Model Update & Data Entry")
+    mode = st.radio("Choose update method:", ["📄 Upload Excel", "✍️ Manual Add"])
 
-            expected_cols = st.session_state["manual_data"].columns.tolist()
-            df = df[expected_cols]  # Only keep expected columns
+    if mode == "📄 Upload Excel":
+        uploaded_file = st.file_uploader("Upload Excel file", type=["xlsx"])
+        if uploaded_file is not None:
+            try:
+                df = pd.read_excel(uploaded_file).iloc[:, 1:]
+                for col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors='coerce')
+                df = df.dropna()
+                st.session_state["manual_data"] = pd.concat([st.session_state["manual_data"], df], ignore_index=True)
+                st.success("✅ Data added to training set.")
+            except Exception as e:
+                st.error(f"❌ File processing error: {e}")
 
-            for col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors='coerce')
-
-            if df.isnull().any().any():
-                st.warning("⚠️ Some cells couldn't be parsed and are NaN.")
-
-            df = df.dropna()
-
-            st.session_state["manual_data"] = pd.concat([st.session_state["manual_data"], df], ignore_index=True)
-            st.success("✅ Data added to training set.")
-        
-        except Exception as e:
-            st.error(f"❌ File processing error: {e}")
-
-    if mode == "✍️ Manual Add":
+    elif mode == "✍️ Manual Add":
         with st.form("manual_entry"):
             cols = st.columns(3)
             vb = cols[0].number_input("%VB", value=0.0)
@@ -152,14 +115,11 @@ elif mode == "📄 Upload Excel":
             lin_pp = cols[0].number_input("Linear Pp", value=0.0)
             cor_pp = cols[1].number_input("Corelation Pp", value=0.0)
             pp = cols[2].number_input("Pour Point", value=0.0)
-
             submit = st.form_submit_button("Add Row")
             if submit:
-                row = pd.DataFrame([{
-                    "%VB": vb, "Density Blend": density, "Total Sulphur": sulphur,
-                    "Linear Visco": lin_visco, "Core Visco": cor_visco, "Visco 50": visco_50,
-                    "Linear Pp": lin_pp, "Corelation Pp": cor_pp, "Pour Point": pp
-                }])
+                row = pd.DataFrame([{ "%VB": vb, "Density Blend": density, "Total Sulphur": sulphur,
+                                      "Linear Visco": lin_visco, "Core Visco": cor_visco, "Visco 50": visco_50,
+                                      "Linear Pp": lin_pp, "Corelation Pp": cor_pp, "Pour Point": pp }])
                 st.session_state["manual_data"] = pd.concat([st.session_state["manual_data"], row], ignore_index=True)
                 st.success("✅ Row added successfully.")
 
@@ -185,13 +145,13 @@ elif mode == "📄 Upload Excel":
         except Exception as e:
             st.error(f"Training error: {e}")
 
-# --- Blending ---
+# --- Blending Section ---
 elif menu == "🧪 Blending Calculator":
     st.header("🔬 Calculate Blend Features")
     num_parts = st.number_input("Number of blend components", min_value=1, step=1)
     vb = st.number_input("Enter %VB for blend:", min_value=0.0, value=0.0)
-
     blending_data, total_mass = [], 0
+
     for i in range(num_parts):
         st.markdown(f"##### Component {i + 1}")
         cols = st.columns(5)
