@@ -182,7 +182,7 @@ elif menu == "📤 Update Model":
     st.markdown("### 📊 Current Dataset")
     st.dataframe(st.session_state["manual_data"], use_container_width=True, height=300)
 
-    if st.button("🚀 Retrain Models"):
+if st.button("🚀 Retrain Models"):
     try:
         df = st.session_state["manual_data"]
         df_clean = df.apply(pd.to_numeric, errors='coerce').dropna()
