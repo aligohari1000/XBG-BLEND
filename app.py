@@ -127,19 +127,28 @@ elif menu == "📤 Update Model":
 
     mode = st.radio("Choose update method:", ["📄 Upload Excel", "✍️ Manual Add"])
 
-    if mode == "📄 Upload Excel":
-        uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
-        if uploaded_file:
-            try:
-                df = pd.read_excel(uploaded_file).iloc[:, 1:]
-                expected_cols = st.session_state["manual_data"].columns.tolist()
-                if all(col in df.columns for col in expected_cols):
-                    st.session_state["manual_data"] = pd.concat([st.session_state["manual_data"], df], ignore_index=True)
-                    st.success("✅ Data added to dataset.")
-                else:
-                    st.error("❌ Required columns not found.")
-            except Exception as e:
-                st.error(f"❌ File Error: {e}")
+if uploaded_file:
+    try:
+        df = pd.read_excel(uploaded_file).iloc[:, 1:]
+
+        # Clean and convert columns
+        expected_cols = st.session_state["manual_data"].columns.tolist()
+        df = df[expected_cols]  # keep only expected columns
+
+        # Convert all to float where possible
+        for col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+
+        if df.isnull().any().any():
+            st.warning("⚠️ Some values could not be converted and were set as NaN.")
+
+        df = df.dropna()  # drop rows with NaNs (optional)
+
+        st.session_state["manual_data"] = pd.concat([st.session_state["manual_data"], df], ignore_index=True)
+        st.success("✅ Data added to dataset.")
+
+    except Exception as e:
+        st.error(f"❌ File Error: {e}")
 
     if mode == "✍️ Manual Add":
         with st.form("manual_entry"):
