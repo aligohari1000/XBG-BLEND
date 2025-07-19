@@ -116,39 +116,29 @@ if menu == "📈 Prediction":
         st.success(f"🟨 Predicted Visco 50: `{pred_visco:.2f}`")
 
 # --- Update Model ---
-elif menu == "📤 Update Model":
-    st.header("🧠 Model Update & Data Entry")
+elif mode == "📄 Upload Excel":
+    uploaded_file = st.file_uploader("Upload Excel file", type=["xlsx"])
+    
+    if uploaded_file is not None:
+        try:
+            df = pd.read_excel(uploaded_file).iloc[:, 1:]
 
-    if "manual_data" not in st.session_state:
-        st.session_state["manual_data"] = pd.DataFrame(columns=[
-            "%VB", "Density Blend", "Total Sulphur", "Linear Visco", "Core Visco",
-            "Visco 50", "Linear Pp", "Corelation Pp", "Pour Point"
-        ])
+            expected_cols = st.session_state["manual_data"].columns.tolist()
+            df = df[expected_cols]  # Only keep expected columns
 
-    mode = st.radio("Choose update method:", ["📄 Upload Excel", "✍️ Manual Add"])
+            for col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
 
-if uploaded_file:
-    try:
-        df = pd.read_excel(uploaded_file).iloc[:, 1:]
+            if df.isnull().any().any():
+                st.warning("⚠️ Some cells couldn't be parsed and are NaN.")
 
-        # Clean and convert columns
-        expected_cols = st.session_state["manual_data"].columns.tolist()
-        df = df[expected_cols]  # keep only expected columns
+            df = df.dropna()
 
-        # Convert all to float where possible
-        for col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce')
-
-        if df.isnull().any().any():
-            st.warning("⚠️ Some values could not be converted and were set as NaN.")
-
-        df = df.dropna()  # drop rows with NaNs (optional)
-
-        st.session_state["manual_data"] = pd.concat([st.session_state["manual_data"], df], ignore_index=True)
-        st.success("✅ Data added to dataset.")
-
-    except Exception as e:
-        st.error(f"❌ File Error: {e}")
+            st.session_state["manual_data"] = pd.concat([st.session_state["manual_data"], df], ignore_index=True)
+            st.success("✅ Data added to training set.")
+        
+        except Exception as e:
+            st.error(f"❌ File processing error: {e}")
 
     if mode == "✍️ Manual Add":
         with st.form("manual_entry"):
